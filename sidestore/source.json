@@ -25,6 +25,15 @@
       },
       "versions": [
         {
+          "version": "1.0.3",
+          "buildVersion": "3",
+          "date": "2026-09-29T21:28:20+00:00",
+          "localizedDescription": "Update EditorDialog.kt",
+          "downloadURL": "https://github.com/Lycraz/scan-tickets/releases/download/v1.0.3/ScanTickets.ipa",
+          "size": 505402,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.0.2",
           "buildVersion": "2",
           "date": "2026-09-29T21:11:26+00:00",
@@ -43,11 +52,11 @@
           "minOSVersion": "17.0"
         }
       ],
-      "version": "1.0.2",
-      "versionDate": "2026-09-29T21:11:26+00:00",
-      "versionDescription": "Update build.yml",
-      "downloadURL": "https://github.com/Lycraz/scan-tickets/releases/download/v1.0.2/ScanTickets.ipa",
-      "size": 505401
+      "version": "1.0.3",
+      "versionDate": "2026-09-29T21:28:20+00:00",
+      "versionDescription": "Update EditorDialog.kt",
+      "downloadURL": "https://github.com/Lycraz/scan-tickets/releases/download/v1.0.3/ScanTickets.ipa",
+      "size": 505402
     }
   ]
 }
