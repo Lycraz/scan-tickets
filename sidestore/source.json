@@ -25,6 +25,15 @@
       },
       "versions": [
         {
+          "version": "1.0.2",
+          "buildVersion": "2",
+          "date": "2026-09-29T21:11:26+00:00",
+          "localizedDescription": "Update build.yml",
+          "downloadURL": "https://github.com/Lycraz/scan-tickets/releases/download/v1.0.2/ScanTickets.ipa",
+          "size": 505401,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.0.1",
           "buildVersion": "1",
           "date": "2026-09-29T17:33:27+00:00",
@@ -34,11 +43,11 @@
           "minOSVersion": "17.0"
         }
       ],
-      "version": "1.0.1",
-      "versionDate": "2026-09-29T17:33:27+00:00",
-      "versionDescription": "Initial commit",
-      "downloadURL": "https://github.com/Lycraz/scan-tickets/releases/download/v1.0.1/ScanTickets.ipa",
-      "size": 505402
+      "version": "1.0.2",
+      "versionDate": "2026-09-29T21:11:26+00:00",
+      "versionDescription": "Update build.yml",
+      "downloadURL": "https://github.com/Lycraz/scan-tickets/releases/download/v1.0.2/ScanTickets.ipa",
+      "size": 505401
     }
   ]
 }
