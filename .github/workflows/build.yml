@@ -55,9 +55,14 @@ jobs:
           cp -R ios/build/Release-iphoneos/ScanTickets.app Payload/
           zip -qry ScanTickets.ipa Payload
 
-      - name: Journal de compilation (en cas d'échec)
+      - name: Erreurs de compilation (en cas d'échec)
         if: failure()
-        run: tail -200 ios/xcodebuild.log || true
+        run: |
+          # Les erreurs sont affichées en annotations sur la page de l'exécution
+          grep -E "error:|Error:|fatal" ios/xcodebuild.log | sort -u | head -40 | while IFS= read -r line; do
+            echo "::error title=iPhone::${line}"
+          done || true
+          tail -80 ios/xcodebuild.log | sed 's/^/  /' || true
 
       - uses: actions/upload-artifact@v4
         with:
@@ -96,6 +101,14 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease -PversionCode="$BUILD" -PversionName="$VERSION" --no-daemon --stacktrace
           cp app/build/outputs/apk/release/app-release.apk ../ScanTickets.apk
+
+      - name: Erreurs de compilation (en cas d'échec)
+        if: failure()
+        working-directory: android
+        run: |
+          ./gradlew assembleRelease --no-daemon -q 2>&1 | grep -E "^e: |error:|What went wrong|FAILURE" | sort -u | head -40 | while IFS= read -r line; do
+            echo "::error title=Android::${line}"
+          done || true
 
       - uses: actions/upload-artifact@v4
         with:
