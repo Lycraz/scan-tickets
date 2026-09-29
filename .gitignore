@@ -1,0 +1,19 @@
+.DS_Store
+# Xcode
+ios/build/
+xcuserdata/
+*.xcuserstate
+DerivedData/
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.iml
+# Clés et fichiers générés
+*.jks
+*.keystore
+*.ipa
+*.apk
+Payload/

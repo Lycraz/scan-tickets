@@ -1,0 +1,139 @@
+# Fabrique automatiquement l'app iPhone (.ipa pour SideStore) et l'app Android (.apk)
+# à chaque modification du code, puis publie une nouvelle version.
+name: Construire et publier
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - "android/**"
+      - "scripts/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publication
+  cancel-in-progress: false
+
+env:
+  VERSION: 1.0.${{ github.run_number }}
+  BUILD: ${{ github.run_number }}
+
+jobs:
+  ios:
+    name: App iPhone
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Compiler (sans signature, SideStore signe l'app sur l'iPhone)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ScanTickets.xcodeproj \
+            -target ScanTickets \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
+            build | tee xcodebuild.log | grep -E "error:|warning: unre|BUILD (SUCCEEDED|FAILED)" || true
+          test -d build/Release-iphoneos/ScanTickets.app
+
+      - name: Créer le fichier .ipa
+        run: |
+          mkdir -p Payload
+          cp -R ios/build/Release-iphoneos/ScanTickets.app Payload/
+          zip -qry ScanTickets.ipa Payload
+
+      - name: Journal de compilation (en cas d'échec)
+        if: failure()
+        run: tail -200 ios/xcodebuild.log || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: ScanTickets.ipa
+
+  android:
+    name: App Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Clé de signature
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::Secret ANDROID_KEYSTORE_BASE64 manquant (voir le README)."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Compiler
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease -PversionCode="$BUILD" -PversionName="$VERSION" --no-daemon --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk ../ScanTickets.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: ScanTickets.apk
+
+  publier:
+    name: Publier la version
+    needs: [ios, android]
+    if: ${{ always() && (needs.ios.result == 'success' || needs.android.result == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Créer la version sur GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la dist
+          NOTES="$(git log -1 --pretty=%B)"
+          gh release create "v$VERSION" dist/* --title "Scan Tickets $VERSION" --notes "$NOTES"
+
+      - name: Mettre à jour la source SideStore
+        if: ${{ needs.ios.result == 'success' }}
+        run: |
+          python3 scripts/update_source.py \
+            --ipa dist/ScanTickets.ipa \
+            --version "$VERSION" --build "$BUILD" \
+            --repo "$GITHUB_REPOSITORY" \
+            --notes "$(git log -1 --pretty=%B)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sidestore/source.json
+          git commit -m "SideStore : version $VERSION" || exit 0
+          git pull --rebase origin main
+          git push origin HEAD:main
