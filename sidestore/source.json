@@ -25,6 +25,15 @@
       },
       "versions": [
         {
+          "version": "1.0.5",
+          "buildVersion": "5",
+          "date": "2026-09-30T20:32:04+00:00",
+          "localizedDescription": "Merge branch 'main' of https://github.com/Lycraz/scan-tickets",
+          "downloadURL": "https://github.com/Lycraz/scan-tickets/releases/download/v1.0.5/ScanTickets.ipa",
+          "size": 584042,
+          "minOSVersion": "17.0"
+        },
+        {
           "version": "1.0.4",
           "buildVersion": "4",
           "date": "2026-09-30T20:08:35+00:00",
@@ -61,11 +70,11 @@
           "minOSVersion": "17.0"
         }
       ],
-      "version": "1.0.4",
-      "versionDate": "2026-09-30T20:08:35+00:00",
-      "versionDescription": "Envoi par mail + correctif Excel Android",
-      "downloadURL": "https://github.com/Lycraz/scan-tickets/releases/download/v1.0.4/ScanTickets.ipa",
-      "size": 565855
+      "version": "1.0.5",
+      "versionDate": "2026-09-30T20:32:04+00:00",
+      "versionDescription": "Merge branch 'main' of https://github.com/Lycraz/scan-tickets",
+      "downloadURL": "https://github.com/Lycraz/scan-tickets/releases/download/v1.0.5/ScanTickets.ipa",
+      "size": 584042
     }
   ]
 }
