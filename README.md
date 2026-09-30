@@ -49,4 +49,6 @@ Onglet **Actions › Construire et publier › Run workflow**. Compte environ 10
 
 ## Modèle de note de frais
 
-Le modèle Excel de l'entreprise n'est **pas** inclus dans le dépôt. Chaque utilisateur l'importe une fois dans l'app : **Réglages › Note de frais › Modèle Excel**.
+Un modèle générique (`NoteDeFrais_modele.xlsx`, sans nom d'entreprise) est fourni avec l'app. L'en-tête est rempli avec le profil de chaque utilisateur (**Réglages › Note de frais › Profil**).
+
+La trame d'une entreprise n'est **pas** incluse dans le dépôt. Pour l'utiliser, chaque utilisateur l'importe une fois dans l'app : **Réglages › Note de frais › Modèle Excel**. Elle doit garder la même disposition que le modèle générique.

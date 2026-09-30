@@ -199,9 +199,12 @@ object NoteDeFrais {
     private fun sheetPath(name: String, entries: Map<String, ByteArray>): String {
         val wb = entries["xl/workbook.xml"]?.toString(Charsets.UTF_8) ?: throw AppException("Modèle Excel invalide")
         val rels = entries["xl/_rels/workbook.xml.rels"]?.toString(Charsets.UTF_8) ?: throw AppException("Modèle Excel invalide")
-        val tagStart = wb.indexOf("<sheet name=\"${XlsxWriter.esc(name)}\"")
-        if (tagStart < 0) throw AppException("Feuille « $name » introuvable dans le modèle")
-        val tag = wb.substring(tagStart, wb.indexOf("/>", tagStart) + 2)
+        // Toutes les balises <sheet …/> du classeur (quel que soit l'ordre des attributs)
+        val tags = Regex("<sheet [^>]*/>").findAll(wb).map { it.value }.toList()
+        // La feuille « Note de frais », sinon la première feuille visible (modèle de même disposition)
+        val tag = tags.firstOrNull { attribute("name", it) == XlsxWriter.esc(name) || attribute("name", it) == name }
+            ?: tags.firstOrNull { attribute("state", it) != "hidden" }
+            ?: throw AppException("Aucune feuille exploitable dans le modèle")
         val rid = attribute("r:id", tag) ?: throw AppException("Modèle Excel invalide")
         val relPos = rels.indexOf("Id=\"$rid\"")
         if (relPos < 0) throw AppException("Modèle Excel invalide")

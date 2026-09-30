@@ -116,20 +116,20 @@ struct TemplateView: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("Modèle utilisé", value: hasCustom ? "Importé" : (NoteDeFrais.hasTemplate ? "Fourni avec l'app" : "Aucun"))
+                LabeledContent("Modèle utilisé", value: hasCustom ? "Importé" : (NoteDeFrais.hasTemplate ? "Modèle de base" : "Aucun"))
                 Button {
                     importing = true
                 } label: {
                     Label("Importer un nouveau modèle (.xlsx)", systemImage: "square.and.arrow.down")
                 }
                 if hasCustom {
-                    Button(NoteDeFrais.hasTemplateInBundle ? "Revenir au modèle fourni" : "Supprimer le modèle importé", role: .destructive) {
+                    Button(NoteDeFrais.hasTemplateInBundle ? "Revenir au modèle de base" : "Supprimer le modèle importé", role: .destructive) {
                         try? FileManager.default.removeItem(at: NoteDeFrais.customTemplateURL)
                         hasCustom = false
                     }
                 }
             } footer: {
-                Text("Le modèle doit garder la même disposition (feuille « Note de frais », justificatifs lignes 14 à 44). Utile si l'entreprise met à jour sa trame.")
+                Text("Un modèle de note de frais générique est fourni avec l'app. L'en-tête (nom, entité, véhicule, immatriculation…) est rempli avec votre Profil. Vous pouvez importer la trame de votre entreprise si elle garde la même disposition : justificatifs lignes 14 à 44, mêmes colonnes et mêmes cases d'en-tête.")
             }
         }
         .navigationTitle("Modèle Excel")

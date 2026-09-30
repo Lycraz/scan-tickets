@@ -350,18 +350,18 @@ private fun TemplatePage(onBack: () -> Unit) {
 
     Page("Modèle Excel", onBack) {
         Group {
-            Row { Text("Modèle utilisé", Modifier.weight(1f)); Text(if (hasCustom) "Importé" else if (NoteDeFrais.hasTemplate(ctx)) "Fourni avec l'app" else "Aucun", fontWeight = FontWeight.SemiBold) }
+            Row { Text("Modèle utilisé", Modifier.weight(1f)); Text(if (hasCustom) "Importé" else if (NoteDeFrais.hasTemplate(ctx)) "Modèle de base" else "Aucun", fontWeight = FontWeight.SemiBold) }
             HorizontalDivider()
             NavRow("Importer un nouveau modèle (.xlsx)") {
                 importLauncher.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream"))
             }
             if (hasCustom) {
                 TextButton(onClick = { NoteDeFrais.customTemplate(ctx).delete(); hasCustom = false }) {
-                    Text("Supprimer le modèle importé", color = MaterialTheme.colorScheme.error)
+                    Text("Revenir au modèle de base", color = MaterialTheme.colorScheme.error)
                 }
             }
         }
-        Footer("Le modèle doit garder la même disposition (feuille « Note de frais », justificatifs lignes 14 à 44). Utile si l'entreprise met à jour sa trame.")
+        Footer("Un modèle de note de frais générique est fourni avec l'app. L'en-tête (nom, entité, véhicule, immatriculation…) est rempli avec votre Profil. Vous pouvez importer la trame de votre entreprise si elle garde la même disposition : justificatifs lignes 14 à 44, mêmes colonnes et mêmes cases d'en-tête.")
     }
 
     message?.let {

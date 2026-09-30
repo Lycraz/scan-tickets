@@ -216,10 +216,19 @@ enum NoteDeFrais {
         guard let wb = entries.first(where: { $0.name == "xl/workbook.xml" }).flatMap({ String(data: $0.data, encoding: .utf8) }),
               let rels = entries.first(where: { $0.name == "xl/_rels/workbook.xml.rels" }).flatMap({ String(data: $0.data, encoding: .utf8) })
         else { throw AppError("Modèle Excel invalide") }
-        guard let tagRange = wb.range(of: "<sheet name=\"\(name)\"") ?? wb.range(of: "<sheet name=\"\(XLSXWriter.escape(name))\""),
-              let tagEnd = wb[tagRange.upperBound...].range(of: "/>"),
-              let rid = attribute("r:id", in: String(wb[tagRange.lowerBound..<tagEnd.upperBound]))
-        else { throw AppError("Feuille « \(name) » introuvable dans le modèle") }
+        // Toutes les balises <sheet …/> du classeur (quel que soit l'ordre des attributs)
+        var tags: [String] = []
+        var cursor = wb.startIndex
+        while let r = wb.range(of: "<sheet ", range: cursor..<wb.endIndex),
+              let end = wb.range(of: "/>", range: r.upperBound..<wb.endIndex) {
+            tags.append(String(wb[r.lowerBound..<end.upperBound]))
+            cursor = end.upperBound
+        }
+        // La feuille « Note de frais », sinon la première feuille visible (modèle de même disposition)
+        let byName = tags.first { attribute("name", in: $0) == name || attribute("name", in: $0) == XLSXWriter.escape(name) }
+        let firstVisible = tags.first { attribute("state", in: $0) != "hidden" }
+        guard let tag = byName ?? firstVisible, let rid = attribute("r:id", in: tag)
+        else { throw AppError("Aucune feuille exploitable dans le modèle") }
         guard let relRange = rels.range(of: "Id=\"\(rid)\"") else { throw AppError("Modèle Excel invalide") }
         let relStart = rels[..<relRange.lowerBound].lastIndex(of: "<") ?? relRange.lowerBound
         let relEnd = rels[relRange.upperBound...].range(of: "/>")?.upperBound ?? rels.endIndex
