@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -24,6 +25,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -72,6 +74,11 @@ fun ExportScreen(store: TicketStore) {
     var saveToFolder by rememberSaveable { mutableStateOf(true) }
     var working by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var created by remember { mutableStateOf<List<File>?>(null) }
+    var savedInfo by remember { mutableStateOf<String?>(null) }
+    var mailSubject by remember { mutableStateOf("") }
+    var mailBody by remember { mutableStateOf("") }
+    var mailFiles by remember { mutableStateOf<List<File>?>(null) }
 
     LaunchedEffect(week) {
         feuilleMission = Prefs.string(ctx, "fm_$week") ?: Prefs.string(ctx, "fm_last") ?: ""
@@ -131,16 +138,38 @@ fun ExportScreen(store: TicketStore) {
             working = true
             try {
                 val files = if (noteMode) exportNote() else exportRecap()
+                savedInfo = null
                 if (saveToFolder && store.folderName != null) {
                     var saved = 0
                     for (f in files) {
                         val mime = if (f.name.endsWith(".xlsx")) XLSX_MIME else "image/jpeg"
                         if (store.saveExportToFolder(f, mime, if (noteMode) week else null) != null) saved++
                     }
-                    message = if (saved == files.size) "Fichiers enregistrés dans « ${store.folderName}/Exports »."
+                    savedInfo = if (saved == files.size) "Enregistré dans « ${store.folderName}/Exports »."
                     else store.lastFolderError ?: "Impossible d'écrire dans le dossier de sauvegarde."
                 }
-                shareFiles(ctx, files, if (noteMode) "Partager la note de frais" else "Partager le récapitulatif")
+                // Texte proposé pour l'envoi par mail
+                val nom = Prefs.profile(ctx, "nom")
+                if (noteMode) {
+                    val fm = feuilleMission.trim()
+                    val total = weekTickets.sumOf { it.ttc ?: 0.0 }
+                    mailSubject = "Note de frais $week" + (if (fm.isNotEmpty()) " – $fm" else "") + (if (nom.isNotEmpty()) " – $nom" else "")
+                    mailBody = "Bonjour,\n\nVeuillez trouver ci-joint ma note de frais de la semaine ${Fmt.weekTitle(week)}" +
+                        (if (fm.isNotEmpty()) " (feuille de mission $fm)" else "") +
+                        " : ${weekTickets.size} ligne(s), total ${Fmt.money(total)}." +
+                        (if (includePhotos) "\nLes justificatifs sont joints, numérotés comme dans la colonne « Just »." else "") +
+                        "\n\nCordialement,\n$nom"
+                } else {
+                    val label = if (month.isEmpty()) "tous les mois" else Fmt.monthTitle(month)
+                    val total = monthTickets.sumOf { it.ttc ?: 0.0 }
+                    mailSubject = "Récapitulatif des frais – $label" + (if (nom.isNotEmpty()) " – $nom" else "")
+                    mailBody = "Bonjour,\n\nVeuillez trouver ci-joint le récapitulatif de mes frais ($label) : " +
+                        "${monthTickets.size} ticket(s), total ${Fmt.money(total)}." +
+                        (if (includePhotos) "\nLes photos des tickets sont jointes." else "") +
+                        "\n\nCordialement,\n$nom"
+                }
+                // On propose : envoyer par mail, ouvrir le fichier Excel seul, ou tout partager
+                created = files
             } catch (e: Exception) {
                 message = "Export impossible : ${e.message}"
             } finally {
@@ -229,10 +258,52 @@ fun ExportScreen(store: TicketStore) {
                 }
             }
             Text(
-                "Une fois créés, les fichiers s'ouvrent dans le menu de partage : Drive, Gmail, « Enregistrer dans Fichiers »…",
+                "Une fois créé, vous pouvez ouvrir le fichier Excel directement, ou tout partager (Drive, Gmail, WhatsApp…).",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+
+    created?.let { files ->
+        val sheets = files.filter { it.name.endsWith(".xlsx") }
+        val photos = files.size - sheets.size
+        AlertDialog(
+            onDismissRequest = { created = null },
+            title = { Text(if (noteMode) "Note de frais créée" else "Récapitulatif créé") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    sheets.forEach { Text(it.name, fontWeight = FontWeight.SemiBold) }
+                    if (photos > 0) Text("+ $photos photo(s) de justificatifs")
+                    savedInfo?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    Spacer(Modifier.height(4.dp))
+                    Button(onClick = { mailFiles = files; created = null }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Filled.Email, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Envoyer par mail")
+                    }
+                    OutlinedButton(onClick = {
+                        val first = sheets.firstOrNull()
+                        if (first != null && !openFile(ctx, first)) {
+                            message = "Aucune app ne sait ouvrir les fichiers Excel sur ce téléphone. Installez Microsoft Excel ou Google Sheets depuis le Play Store."
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Ouvrir le fichier Excel") }
+                    OutlinedButton(onClick = {
+                        shareFiles(ctx, files, if (noteMode) "Partager la note de frais" else "Partager le récapitulatif")
+                    }, modifier = Modifier.fillMaxWidth()) { Text(if (photos > 0) "Tout partager" else "Partager") }
+                }
+            },
+            confirmButton = { TextButton(onClick = { created = null }) { Text("Fermer") } },
+        )
+    }
+
+    mailFiles?.let { files ->
+        MailDialog(
+            files = files,
+            initialSubject = mailSubject,
+            initialBody = mailBody,
+            onDismiss = { mailFiles = null },
+            onError = { mailFiles = null; message = it },
+        )
     }
 
     message?.let {

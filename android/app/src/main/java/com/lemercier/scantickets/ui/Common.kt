@@ -1,6 +1,7 @@
 package com.lemercier.scantickets.ui
 
 import android.app.DatePickerDialog
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
@@ -103,19 +104,38 @@ fun pickDate(ctx: Context, current: LocalDate, onPick: (LocalDate) -> Unit) {
 fun exportsDir(ctx: Context): File = File(ctx.cacheDir, "exports").apply { mkdirs() }
 
 /** Ouvre la feuille de partage Android (Drive, Gmail, enregistrer…) */
+private const val XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+private fun mimeOf(f: File) = if (f.name.endsWith(".xlsx")) XLSX_TYPE else "image/jpeg"
+
+/** Ouvre un fichier dans l'app par défaut (Excel, Sheets…). Renvoie false si aucune app ne sait l'ouvrir. */
+fun openFile(ctx: Context, file: File): Boolean {
+    val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".fileprovider", file)
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, mimeOf(file))
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    return try {
+        ctx.startActivity(intent)
+        true
+    } catch (e: ActivityNotFoundException) {
+        false
+    }
+}
+
 fun shareFiles(ctx: Context, files: List<File>, title: String) {
     if (files.isEmpty()) return
     val auth = ctx.packageName + ".fileprovider"
     val uris = ArrayList(files.map { FileProvider.getUriForFile(ctx, auth, it) })
+    val types = files.map { mimeOf(it) }.distinct()
     val intent = if (uris.size == 1) {
         Intent(Intent.ACTION_SEND).apply {
-            type = if (files[0].name.endsWith(".xlsx"))
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" else "image/jpeg"
+            type = types[0]
             putExtra(Intent.EXTRA_STREAM, uris[0])
         }
     } else {
         Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-            type = "*/*"
+            type = if (types.size == 1) types[0] else "*/*"
             putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
         }
     }

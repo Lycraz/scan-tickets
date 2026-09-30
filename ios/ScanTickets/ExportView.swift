@@ -20,9 +20,22 @@ struct ExportView: View {
     @State private var resultMessage: String?
     @State private var working = false
 
+    @State private var created: Created?
+    @State private var mailDraft: MailDraft?
+
     struct ShareItems: Identifiable {
         let id = UUID()
         let urls: [URL]
+    }
+
+    /// Résultat d'un export : fichiers créés et texte proposé pour le mail
+    struct Created: Identifiable {
+        let id = UUID()
+        let title: String
+        let urls: [URL]
+        let info: String?
+        let subject: String
+        let body: String
     }
 
     private var weekTickets: [Ticket] { store.tickets.filter { $0.weekKey == week } }
@@ -79,6 +92,19 @@ struct ExportView: View {
                 ActivityView(items: items.urls)
                     .presentationDetents([.medium, .large])
             }
+            .sheet(item: $mailDraft) { draft in
+                MailFormView(draft: draft) { msg in resultMessage = msg }
+            }
+            .confirmationDialog(created?.title ?? "", isPresented: Binding(get: { created != nil }, set: { if !$0 { created = nil } }),
+                                titleVisibility: .visible, presenting: created) { c in
+                Button("Envoyer par mail") {
+                    mailDraft = MailDraft(subject: c.subject, body: c.body, attachments: c.urls)
+                }
+                Button("Ouvrir / partager…") { shareItems = ShareItems(urls: c.urls) }
+                Button("Fermer", role: .cancel) {}
+            } message: { c in
+                Text(summary(c))
+            }
             .alert("Export", isPresented: Binding(get: { resultMessage != nil }, set: { if !$0 { resultMessage = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -130,6 +156,15 @@ struct ExportView: View {
         } footer: {
             Text("Remplit votre modèle Excel : en-tête, une ligne par justificatif, colonnes selon la nature, kilomètres et totaux.")
         }
+    }
+
+    private func summary(_ c: Created) -> String {
+        let sheets = c.urls.filter { $0.pathExtension.lowercased() == "xlsx" }.map { $0.lastPathComponent }
+        var lines: [String] = sheets
+        let photos = c.urls.count - sheets.count
+        if photos > 0 { lines.append("+ \(photos) photo(s)") }
+        if let info = c.info { lines.append(info) }
+        return lines.joined(separator: "\n")
     }
 
     private func loadFeuilleMission() {
@@ -198,14 +233,26 @@ struct ExportView: View {
                 urls.append(dest)
             }
         }
+        var info: String?
         if saveToCloud, store.cloudFolderName != nil {
             var saved = 0
             for u in urls where store.saveExportToCloud(u, subfolder: week) != nil { saved += 1 }
-            resultMessage = saved == urls.count
-                ? "Note de frais enregistrée dans iCloud Drive : \(store.cloudFolderName ?? "")/Exports/\(week)"
+            info = saved == urls.count
+                ? "Enregistrée dans iCloud Drive : \(store.cloudFolderName ?? "")/Exports/\(week)"
                 : (store.lastCloudError ?? "Impossible d'écrire dans le dossier iCloud.")
         }
-        shareItems = ShareItems(urls: urls)
+        let nom = Prefs.profile("nom")
+        let fm = header.feuilleMission
+        let total = weekTickets.reduce(0) { $0 + ($1.ttc ?? 0) }
+        var subject = "Note de frais \(week)"
+        if !fm.isEmpty { subject += " – \(fm)" }
+        if !nom.isEmpty { subject += " – \(nom)" }
+        var text = "Bonjour,\n\nVeuillez trouver ci-joint ma note de frais de la semaine \(Fmt.weekTitle(week))"
+        if !fm.isEmpty { text += " (feuille de mission \(fm))" }
+        text += " : \(weekTickets.count) ligne(s), total \(Fmt.money(total))."
+        if includePhotos { text += "\nLes justificatifs sont joints, numérotés comme dans la colonne « Just »." }
+        text += "\n\nCordialement,\n\(nom)"
+        created = Created(title: "Note de frais créée", urls: urls, info: info, subject: subject, body: text)
     }
 
     private func exportRecap() throws {
@@ -225,14 +272,22 @@ struct ExportView: View {
                 urls.append(dest)
             }
         }
+        var info: String?
         if saveToCloud, store.cloudFolderName != nil {
             if let path = store.saveExportToCloud(xlsx) {
-                resultMessage = "Excel enregistré dans iCloud Drive : \(path)"
+                info = "Enregistré dans iCloud Drive : \(path)"
             } else {
-                resultMessage = store.lastCloudError ?? "Impossible d'écrire dans le dossier iCloud."
+                info = store.lastCloudError ?? "Impossible d'écrire dans le dossier iCloud."
             }
         }
-        shareItems = ShareItems(urls: urls)
+        let nom = Prefs.profile("nom")
+        let label = month.isEmpty ? "tous les mois" : Fmt.monthTitle(month)
+        let total = monthTickets.reduce(0) { $0 + ($1.ttc ?? 0) }
+        var text = "Bonjour,\n\nVeuillez trouver ci-joint le récapitulatif de mes frais (\(label)) : \(monthTickets.count) ticket(s), total \(Fmt.money(total))."
+        if includePhotos { text += "\nLes photos des tickets sont jointes." }
+        text += "\n\nCordialement,\n\(nom)"
+        created = Created(title: "Récapitulatif créé", urls: urls, info: info,
+                          subject: "Récapitulatif des frais – \(label)" + (nom.isEmpty ? "" : " – \(nom)"), body: text)
     }
 }
 

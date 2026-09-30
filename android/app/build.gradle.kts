@@ -15,6 +15,11 @@ android {
         // Numéros de version fournis par GitHub Actions (-PversionCode=… -PversionName=…)
         versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
         versionName = (project.findProperty("versionName") as String?) ?: "1.0"
+
+        // Seulement les processeurs des vrais téléphones (allège l'APK)
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     // Clé de signature stable (fournie par les secrets GitHub) : indispensable pour que
@@ -33,7 +38,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Retire le code et les icônes inutilisés : APK beaucoup plus léger
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = if (keystoreFile != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
@@ -70,5 +77,6 @@ dependencies {
 
     // Scanner de documents Google (recadrage automatique) + lecture de texte hors ligne
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
-    implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Modèle de lecture fourni par les services Google (non embarqué dans l'APK)
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
 }
